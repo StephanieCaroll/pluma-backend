@@ -27,17 +27,15 @@ public class FileStorageService {
 
     public String storeFile(MultipartFile file) {
         try {
-            String fileName = StringUtils.cleanPath(file.getOriginalFilename());
-            String newFileName = System.currentTimeMillis() + "_" + fileName;
-            
-            if (fileName.contains("..")) {
-                throw new RuntimeException("Nome de arquivo inválido: " + fileName);
-            }
+            // Gera um nome único para o arquivo
+            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+            String fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            String newFileName = System.currentTimeMillis() + fileExtension;
             
             Path targetLocation = this.fileStorageLocation.resolve(newFileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
             
-            return newFileName; // Retorna apenas o nome do arquivo
+            return newFileName;
         } catch (IOException ex) {
             throw new RuntimeException("Falha ao armazenar arquivo", ex);
         }

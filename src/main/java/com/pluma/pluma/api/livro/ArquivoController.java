@@ -4,26 +4,27 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/arquivos")
 public class ArquivoController {
 
-    private final Path root = Paths.get("uploads");
+    private final Path fileStorageLocation;
+
+    public ArquivoController(@Value("${file.upload-dir}") String uploadDir) {
+        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+    }
 
     @GetMapping("/livro/{filename:.+}")
     public ResponseEntity<Resource> servirLivroDigital(@PathVariable String filename) {
         try {
-            Path file = root.resolve(filename);
+           
+            String decodedFilename = java.net.URLDecoder.decode(filename, "UTF-8");
+            Path file = fileStorageLocation.resolve(decodedFilename).normalize();
             Resource resource = new UrlResource(file.toUri());
 
             if (resource.exists() || resource.isReadable()) {
@@ -33,9 +34,9 @@ public class ArquivoController {
                         .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
                         .body(resource);
             } else {
-                throw new RuntimeException("Arquivo não encontrado: " + filename);
+                throw new RuntimeException("Arquivo não encontrado: " + decodedFilename);
             }
-        } catch (MalformedURLException e) {
+        } catch (Exception e) {
             throw new RuntimeException("Erro ao ler arquivo: " + e.getMessage());
         }
     }
