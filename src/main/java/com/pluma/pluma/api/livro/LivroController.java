@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,30 +45,56 @@ public class LivroController {
 
     @GetMapping
     public ResponseEntity<List<Livro>> listarTodos() {
+        logger.info("Listando todos os livros");
         return ResponseEntity.ok(livroService.listarTodos());
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Livro>> buscarPorTituloOuAutor(@RequestParam String termo) {
+        logger.info("Pesquisando livros por termo: {}", termo);
+        List<Livro> livros = livroService.buscarPorTituloOuAutor(termo);
+        logger.info("Encontrados {} livros para o termo '{}'", livros.size(), termo);
+        return ResponseEntity.ok(livros);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Livro> buscarPorId(@PathVariable Long id) {
+        logger.info("Buscando livro por ID: {}", id);
         return livroService.buscarPorId(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(livro -> {
+                    logger.info("Livro encontrado: {}", livro.getTitulo());
+                    return ResponseEntity.ok(livro);
+                })
+                .orElseGet(() -> {
+                    logger.warn("Livro com ID {} não encontrado", id);
+                    return ResponseEntity.notFound().build();
+                });
     }
-    
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Livro> cadastrarLivro(
             @RequestPart("livro") String livroStr,
-            @RequestPart(value = "arquivo", required = false) MultipartFile arquivo) throws IOException {
+            @RequestPart(value = "arquivo", required = false) MultipartFile arquivo,
+            @RequestPart(value = "capa", required = false) MultipartFile capa) throws IOException {
         
+        logger.info("Recebendo requisição para cadastrar novo livro");
         Livro livro = objectMapper.readValue(livroStr, Livro.class);
         livro.setId(null); // Garante que o ID será gerado automaticamente
         
         if (arquivo != null && !arquivo.isEmpty()) {
+            logger.info("Processando arquivo PDF do livro");
             String nomeArquivo = fileStorageService.storeFile(arquivo);
             livro.setUrlArquivoPDF("/uploads/" + nomeArquivo);
         }
         
+        if (capa != null && !capa.isEmpty()) {
+            logger.info("Processando capa do livro");
+            String nomeCapa = fileStorageService.storeFile(capa);
+            livro.setUrlCapa("/uploads/" + nomeCapa);
+        }
+        
         Livro livroSalvo = livroService.salvarLivro(livro);
+        logger.info("Livro cadastrado com sucesso: {}", livroSalvo.getTitulo());
         return ResponseEntity.status(HttpStatus.CREATED).body(livroSalvo);
     }
 
@@ -75,22 +102,40 @@ public class LivroController {
     public ResponseEntity<Livro> atualizarLivro(
             @PathVariable Long id,
             @RequestPart("livro") String livroStr,
-            @RequestPart(value = "arquivo", required = false) MultipartFile arquivo) throws IOException {
+            @RequestPart(value = "arquivo", required = false) MultipartFile arquivo,
+            @RequestPart(value = "capa", required = false) MultipartFile capa) throws IOException {
         
+        logger.info("Recebendo requisição para atualizar livro ID: {}", id);
         Livro livroAtualizado = objectMapper.readValue(livroStr, Livro.class);
         
         if (arquivo != null && !arquivo.isEmpty()) {
+            logger.info("Atualizando arquivo PDF do livro");
             String nomeArquivo = fileStorageService.storeFile(arquivo);
             livroAtualizado.setUrlArquivoPDF("/uploads/" + nomeArquivo);
         }
         
+        if (capa != null && !capa.isEmpty()) {
+            logger.info("Atualizando capa do livro");
+            String nomeCapa = fileStorageService.storeFile(capa);
+            livroAtualizado.setUrlCapa("/uploads/" + nomeCapa);
+        }
+        
         Livro resultado = livroService.atualizarLivro(id, livroAtualizado);
-        return resultado != null ? ResponseEntity.ok(resultado) : ResponseEntity.notFound().build();
+        
+        if (resultado != null) {
+            logger.info("Livro ID {} atualizado com sucesso", id);
+            return ResponseEntity.ok(resultado);
+        } else {
+            logger.warn("Falha ao atualizar livro ID {}", id);
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletarLivro(@PathVariable Long id) {
+        logger.info("Recebendo requisição para deletar livro ID: {}", id);
         livroService.deletarLivro(id);
+        logger.info("Livro ID {} deletado com sucesso", id);
         return ResponseEntity.noContent().build();
     }
 }

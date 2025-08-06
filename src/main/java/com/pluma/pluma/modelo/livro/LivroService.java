@@ -19,6 +19,10 @@ public class LivroService {
         return livroRepository.findAll();
     }
 
+    public List<Livro> buscarPorTituloOuAutor(String termo) {
+        return livroRepository.findByTituloContainingIgnoreCaseOrAutorContainingIgnoreCase(termo, termo);
+    }
+
     public Optional<Livro> buscarPorId(Long id) {
         return livroRepository.findById(id);
     }
@@ -36,8 +40,15 @@ public class LivroService {
                     livro.setPreco(livroAtualizado.getPreco());
                     livro.setDescricao(livroAtualizado.getDescricao());
                     livro.setAnoPublicacao(livroAtualizado.getAnoPublicacao());
-                    livro.setUrlCapa(livroAtualizado.getUrlCapa());
-                    livro.setUrlArquivoPDF(livroAtualizado.getUrlArquivoPDF());
+                    
+                    if (livroAtualizado.getUrlCapa() != null) {
+                        livro.setUrlCapa(livroAtualizado.getUrlCapa());
+                    }
+                    
+                    if (livroAtualizado.getUrlArquivoPDF() != null) {
+                        livro.setUrlArquivoPDF(livroAtualizado.getUrlArquivoPDF());
+                    }
+                    
                     livro.setNumeroPaginas(livroAtualizado.getNumeroPaginas());
                     livro.setIdioma(livroAtualizado.getIdioma());
                     livro.setEstoque(livroAtualizado.getEstoque());
